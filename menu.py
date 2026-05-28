@@ -1,23 +1,45 @@
-# ============================================================
-# menu.py — Painel web de controle do Rover (tudo em um)
-# Controle via botões na interface web, sem pygame
-# ============================================================
-
 import streamlit as st
 import socket
 
 st.title("🚗 Rover Control Panel")
 
+# ── CSS para destacar botão ativo ────────────────────────────
+st.markdown("""
+<style>
+.botao-ativo {
+    background-color: #00cc44 !important;
+    color: white !important;
+    font-size: 1.4em;
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+    font-weight: bold;
+    border: 3px solid #00ff55;
+    box-shadow: 0 0 12px #00cc44;
+}
+.botao-inativo {
+    background-color: #2e2e2e;
+    color: #aaaaaa;
+    font-size: 1.4em;
+    border-radius: 12px;
+    padding: 18px;
+    text-align: center;
+    border: 2px solid #444;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ── Configuração de conexão ──────────────────────────────────
 ip = st.text_input("IP do Rover", value="192.168.7.149")
 porta = st.number_input("Porta", value=5000, step=1)
 
-# ── Gerencia conexão no session_state ───────────────────────
 if "cliente" not in st.session_state:
     st.session_state.cliente = None
 
-col1, col2 = st.columns(2)
+if "cmd_ativo" not in st.session_state:
+    st.session_state.cmd_ativo = None  # qual botão está destacado
 
+col1, col2 = st.columns(2)
 with col1:
     if st.button("🔌 Conectar"):
         try:
@@ -35,8 +57,9 @@ with col2:
             st.session_state.cliente = None
             st.info("Desconectado.")
 
-# ── Função para enviar comando ───────────────────────────────
-def enviar(cmd: bytes):
+# ── Função para enviar e marcar botão ativo ──────────────────
+def enviar(cmd: bytes, nome: str):
+    st.session_state.cmd_ativo = nome
     try:
         if st.session_state.cliente:
             st.session_state.cliente.send(cmd)
@@ -45,37 +68,35 @@ def enviar(cmd: bytes):
     except Exception as e:
         st.error(f"Erro ao enviar: {e}")
 
-# ── Botões de controle ───────────────────────────────────────
+# ── Função para renderizar botão visual ──────────────────────
+def botao_visual(label, cmd, nome, col):
+    ativo = st.session_state.cmd_ativo == nome
+    classe = "botao-ativo" if ativo else "botao-inativo"
+    col.markdown(f'<div class="{classe}">{label}</div>', unsafe_allow_html=True)
+    if col.button(f"{nome}", key=f"btn_{nome}", use_container_width=True):
+        enviar(cmd, nome)
+
+# ── Layout de controle ───────────────────────────────────────
 st.divider()
 st.subheader("Controle")
 
-# Frente
-col_esp, col_w, col_esp2 = st.columns([1, 1, 1])
-with col_w:
-    if st.button("⬆️ W — Frente", use_container_width=True):
-        enviar(b"w")
+# Linha: Frente
+c1, c2, c3 = st.columns([1, 1, 1])
+botao_visual("⬆️ Frente", b"w", "W", c2)
 
-# Esquerda | Parar | Direita
-col_a, col_p, col_d = st.columns(3)
-with col_a:
-    if st.button("⬅️ A — Esq", use_container_width=True):
-        enviar(b"a")
-with col_p:
-    if st.button("⏹️ Parar", use_container_width=True):
-        enviar(b"p")
-with col_d:
-    if st.button("➡️ D — Dir", use_container_width=True):
-        enviar(b"d")
+# Linha: Esquerda | Parar | Direita
+c4, c5, c6 = st.columns([1, 1, 1])
+botao_visual("⬅️ Esq", b"a", "A", c4)
+botao_visual("⏹️ Parar", b"p", "P", c5)
+botao_visual("➡️ Dir", b"d", "D", c6)
 
-# Trás
-col_esp3, col_s, col_esp4 = st.columns([1, 1, 1])
-with col_s:
-    if st.button("⬇️ S — Trás", use_container_width=True):
-        enviar(b"s")
+# Linha: Trás
+c7, c8, c9 = st.columns([1, 1, 1])
+botao_visual("⬇️ Trás", b"s", "S", c8)
 
-# ── Status de conexão ────────────────────────────────────────
+# ── Status ───────────────────────────────────────────────────
 st.divider()
 if st.session_state.cliente:
-    st.success(f"✅ Conectado em {ip}:{porta}")
+    st.success(f"✅ Conectado em {ip}:{int(porta)}")
 else:
     st.warning("⚠️ Desconectado")
