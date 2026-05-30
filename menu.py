@@ -1,5 +1,7 @@
 import streamlit as st
 import socket
+import subprocess
+import time
 
 if "tela" not in st.session_state:
     st.session_state.tela = "login"
@@ -15,17 +17,17 @@ if st.session_state.tela == "login":
 
     if st.button("Entrar"):
         if usuario == "Steakeholders" and senha == "010203":
+            subprocess.Popen(["python", "controle.py"])  # ✅ movido para o login correto
             st.balloons()
-            import time
             time.sleep(2)
             st.session_state.tela = "controle"
             st.rerun()
         else:
-            st.error("Usuário ou senha incorretos.")
+            st.error("Usuário ou senha incorretos.")  # ✅ sem subprocess aqui
 
 # TELA DE CONTROLE
 elif st.session_state.tela == "controle":
-    st.title("🚗 CONTROLE DO CARRO")
+    st.title("🚗 CONECTE O CARRO")
 
     ip = st.text_input("IP do Rover", value="192.168.7.149")
     porta = st.number_input("Porta", value=5000, step=1)
@@ -37,6 +39,7 @@ elif st.session_state.tela == "controle":
             try:
                 cliente = socket.socket()
                 cliente.connect((ip, int(porta)))
+                cliente.settimeout(0.5)
                 st.session_state.cliente = cliente
                 st.success("Conectado!")
             except Exception as e:
@@ -59,27 +62,28 @@ elif st.session_state.tela == "controle":
             st.error(f"Erro ao enviar: {e}")
 
     st.divider()
-    
-    # Nível de bateria do carro
-    
-    if "bateria" not in st.session_state:
-        st.session_state.bateria = 67  
 
-    st.subheader("🔋 Bateria")
+    # Nível de bateria do carro
+    if "bateria" not in st.session_state:
+        st.session_state.bateria = 67
+
+    st.subheader("🔋 BATERIA DO CARRO")
 
     if st.session_state.cliente:
         try:
             resposta = st.session_state.cliente.recv(1024).decode()
-            if resposta:
+            if resposta.strip().isdigit():
                 st.session_state.bateria = int(resposta)
-        except:
+        except socket.timeout:
+            pass
+        except Exception:
             pass
 
     bateria = st.session_state.bateria
     st.progress(bateria / 100)
     st.caption(f"{bateria}% de carga")
     st.divider()
-    st.subheader("Controle")
+    st.subheader("🎮 CONTROLE DO CARRO")
 
     col_esp, col_w, col_esp2 = st.columns([1, 1, 1])
     with col_w:
